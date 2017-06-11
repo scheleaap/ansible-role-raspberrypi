@@ -1,0 +1,8 @@
+---
+# tasks file for raspberrypi
+
+- name: "Ensure that the external sound card is used"
+  template:
+    src: templates/asoundrc.j2
+    dest: /home/pi/.asoundrc
+    mode: 0644
