@@ -1,4 +1,4 @@
 ---
 - hosts: all
   roles:
-    - role: raspberrypi
+    - role: ansible-role-raspberrypi

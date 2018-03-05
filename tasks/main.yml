@@ -4,5 +4,124 @@
 - name: "Ensure that the external sound card is used"
   template:
     src: templates/asoundrc.j2
-    dest: /home/pi/.asoundrc
+    dest: "{{ ansible_env.HOME }}/.asoundrc"
     mode: 0644
+
+# Source: https://learn.adafruit.com/read-only-raspberry-pi/
+
+# echo "Removing unwanted packages..."
+# apt-get remove -y --force-yes --purge triggerhappy cron logrotate dphys-swapfile xserver-common lightdm fake-hwclock
+# apt-get -y --force-yes autoremove --purge
+#
+# # Replace log management with busybox (use logread if needed)
+# echo "Installing busybox-syslogd..."
+# apt-get -y --force-yes install busybox-syslogd; dpkg --purge rsyslog
+
+# - name: "Ensure certain packages are not installed"
+#   become: true
+#   apt:
+#     name: "{{ item }}"
+#     state: absent
+#     purge: yes
+#   with_items:
+#     - triggerhappy
+#     - cron
+#     - logrotate
+#     - dphys-swapfile
+#     - xserver-common
+#     - lightdm
+#     - fake-hwclock
+#     - rsyslog
+#
+# - name: "Ensure certain packages are installed"
+#   become: true
+#   apt:
+#     name: "{{ item }}"
+#     state: present
+#     purge: yes
+#   with_items:
+#     - busybox-syslogd
+
+# # Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
+# append2 /boot/cmdline.txt fastboot fastboot
+# append2 /boot/cmdline.txt noswap noswap
+# append2 /boot/cmdline.txt ro^o^t ro
+#
+# # Move /var/spool to /tmp
+# rm -rf /var/spool
+# ln -s /tmp /var/spool
+
+- name: "Ensure /tmp/var/spool exists"
+  become: true
+  file:
+    path: /tmp/var/spool
+    state: directory
+- name: "Retrieve status of /var/spool"
+  stat:
+    path: /var/spool
+  register: var_spool
+- name: "Ensure /var/spool is not a directory"
+  become: true
+  file:
+    path: /var/spool
+    state: absent
+  when: var_spool.stat.exists and var_spool.stat.isdir
+- name: "Ensure /var/spool links to /tmp/var/spool"
+  become: true
+  file:
+    dest: /var/spool
+    state: link
+    src: /tmp/var/spool
+
+# # Move /var/lib/lightdm and /var/cache/lightdm to /tmp
+# rm -rf /var/lib/lightdm
+# rm -rf /var/cache/lightdm
+# ln -s /tmp /var/lib/lightdm
+# ln -s /tmp /var/cache/lightdm
+#
+# # Make SSH work
+# replaceAppend /etc/ssh/sshd_config "^.*UsePrivilegeSeparation.*$" "UsePrivilegeSeparation no"
+# # bbro method (not working in Jessie?):
+# #rmdir /var/run/sshd
+# #ln -s /tmp /var/run/sshd
+#
+# # Change spool permissions in var.conf (rondie/Margaret fix)
+# replace /usr/lib/tmpfiles.d/var.conf "spool\s*0755" "spool 1777"
+#
+# # Move dhcpd.resolv.conf to tmpfs
+# touch /tmp/dhcpcd.resolv.conf
+# rm /etc/resolv.conf
+# ln -s /tmp/dhcpcd.resolv.conf /etc/resolv.conf
+#
+# # Make edits to fstab
+# # make / ro
+# # make /boot ro
+# # tmpfs /var/log tmpfs nodev,nosuid 0 0
+# # tmpfs /var/tmp tmpfs nodev,nosuid 0 0
+# # tmpfs /tmp     tmpfs nodev,nosuid 0 0
+
+- name: "Ensure / is mounted read-only"
+  become: true
+  replace:
+    path: /etc/fstab
+    # PARTUUID=2db898db-02  /               ext4    defaults,noatime  0       1
+    regexp: '(.*/\s+ext4\s+)defaults,noatime(\s+.*)'
+    replace: '\1defaults,noatime,ro\2'
+    backup: yes
+- name: "Ensure /boot is mounted read-only"
+  become: true
+  replace:
+    path: /etc/fstab
+    # PARTUUID=2db898db-01  /boot           vfat    defaults          0       2
+    regexp: '(.*/boot\s+vfat\s+)defaults(\s+.*)'
+    replace: '\1defaults,ro\2'
+    backup: yes
+- name: "Ensure temporary directories are mounted as tmpfs"
+  become: true
+  lineinfile:
+    path: /etc/fstab
+    line: "{{ item }}"
+  with_items:
+    - "tmpfs /var/log tmpfs nodev,nosuid 0 0"
+    - "tmpfs /var/tmp tmpfs nodev,nosuid 0 0"
+    - "tmpfs /tmp     tmpfs nodev,nosuid 0 0"

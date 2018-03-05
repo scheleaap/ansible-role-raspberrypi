@@ -4,10 +4,11 @@ dependency:
 driver:
   name: docker
 docker:
+  # See also http://molecule.readthedocs.io/en/latest/driver/docker/index.html#docker-driver-usage
   containers:
     - name: raspberrypi
-      image: ubuntu
-      image_version: latest
+      image: debian
+      image_version: jessie
       ansible_groups:
         - group1
 verifier:
