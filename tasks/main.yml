@@ -17,36 +17,64 @@
 # echo "Installing busybox-syslogd..."
 # apt-get -y --force-yes install busybox-syslogd; dpkg --purge rsyslog
 
-# - name: "Ensure certain packages are not installed"
-#   become: true
-#   apt:
-#     name: "{{ item }}"
-#     state: absent
-#     purge: yes
-#   with_items:
-#     - triggerhappy
-#     - cron
-#     - logrotate
-#     - dphys-swapfile
-#     - xserver-common
-#     - lightdm
-#     - fake-hwclock
-#     - rsyslog
-#
-# - name: "Ensure certain packages are installed"
-#   become: true
-#   apt:
-#     name: "{{ item }}"
-#     state: present
-#     purge: yes
-#   with_items:
-#     - busybox-syslogd
+- name: "Ensure certain packages are not installed"
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: absent
+    purge: yes
+  with_items:
+    - triggerhappy
+    - cron
+    - logrotate
+    - dphys-swapfile
+    - xserver-common
+    - lightdm
+    - fake-hwclock
+    - rsyslog
+
+- name: "Ensure certain packages are installed"
+  become: true
+  apt:
+    name: "{{ item }}"
+    state: present
+    purge: yes
+  with_items:
+    - openssh-server  # Added for testing. Should be installed by default.
+    - busybox-syslogd
 
 # # Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
 # append2 /boot/cmdline.txt fastboot fastboot
 # append2 /boot/cmdline.txt noswap noswap
 # append2 /boot/cmdline.txt ro^o^t ro
-#
+
+- name: "Ensure that /boot/cmdline.txt exists"  # Added for testing. Should be present by default.
+  become: true
+  file:
+    path: /boot/cmdline.txt
+    state: touch
+- name: "Ensure that the Raspberry Pi is started with 'fastboot'"
+  become: true
+  replace:
+    path: /boot/cmdline.txt
+    regexp: '^((?:.(?!fastboot))*)$'
+    replace: '\1 fastboot'
+    backup: yes
+- name: "Ensure that the Raspberry Pi is started with 'noswap'"
+  become: true
+  replace:
+    path: /boot/cmdline.txt
+    regexp: '^((?:.(?!noswap))*)$'
+    replace: '\1 noswap'
+    backup: yes
+- name: "Ensure that the Raspberry Pi is started with 'ro'"
+  become: true
+  replace:
+    path: /boot/cmdline.txt
+    regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
+    replace: '\1 ro'
+    backup: yes
+
 # # Move /var/spool to /tmp
 # rm -rf /var/spool
 # ln -s /tmp /var/spool
@@ -73,26 +101,62 @@
     state: link
     src: /tmp/var/spool
 
-# # Move /var/lib/lightdm and /var/cache/lightdm to /tmp
-# rm -rf /var/lib/lightdm
-# rm -rf /var/cache/lightdm
-# ln -s /tmp /var/lib/lightdm
-# ln -s /tmp /var/cache/lightdm
-#
 # # Make SSH work
 # replaceAppend /etc/ssh/sshd_config "^.*UsePrivilegeSeparation.*$" "UsePrivilegeSeparation no"
-# # bbro method (not working in Jessie?):
-# #rmdir /var/run/sshd
-# #ln -s /tmp /var/run/sshd
-#
+
+- name: "Ensure the SSH server does not use privilege separation"
+  become: true
+  replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^.*UsePrivilegeSeparation.*$'
+    replace: 'UsePrivilegeSeparation no'
+    backup: yes
+
 # # Change spool permissions in var.conf (rondie/Margaret fix)
 # replace /usr/lib/tmpfiles.d/var.conf "spool\s*0755" "spool 1777"
-#
+
+- name: "Ensure the right permissions are set for the temporary directory /var/spool"
+  become: true
+  replace:
+    path: /usr/lib/tmpfiles.d/var.conf
+    regexp: '^(d\s+/var/spool\s+)0755(.*)$'
+    replace: '\g<1>1777\g<2>'
+    backup: yes
+
 # # Move dhcpd.resolv.conf to tmpfs
 # touch /tmp/dhcpcd.resolv.conf
 # rm /etc/resolv.conf
 # ln -s /tmp/dhcpcd.resolv.conf /etc/resolv.conf
-#
+
+- name: "Ensure /tmp/etc exists"
+  become: true
+  file:
+    path: /tmp/etc
+    state: directory
+- name: "Ensure /tmp/etc/resolv.conf exists"
+  become: true
+  file:
+    path: /tmp/etc/resolv.conf
+    state: touch
+- name: "Retrieve status of /etc/resolv.conf"
+  stat:
+    path: /etc/resolv.conf
+  register: etc_resolv_conf
+- name: "Ensure /etc/resolv.conf is not a regular file"
+  become: true
+  file:
+    path: /etc/resolv.conf
+    state: absent
+  when: etc_resolv_conf.stat.exists and etc_resolv_conf.stat.isreg
+  ignore_errors: yes  # Added for testing. Changing /etc/resolv.conf does not work in Docker.
+- name: "Ensure /etc/resolv.conf links to /tmp/etc/resolv.conf"
+  become: true
+  file:
+    dest: /etc/resolv.conf
+    state: link
+    src: /tmp/etc/resolv.conf
+  ignore_errors: yes  # Added for testing. Changing /etc/resolv.conf does not work in Docker
+
 # # Make edits to fstab
 # # make / ro
 # # make /boot ro
@@ -105,7 +169,7 @@
   replace:
     path: /etc/fstab
     # PARTUUID=2db898db-02  /               ext4    defaults,noatime  0       1
-    regexp: '(.*/\s+ext4\s+)defaults,noatime(\s+.*)'
+    regexp: '^(.*/\s+ext4\s+)defaults,noatime(\s+.*)$'
     replace: '\1defaults,noatime,ro\2'
     backup: yes
 - name: "Ensure /boot is mounted read-only"
@@ -113,7 +177,7 @@
   replace:
     path: /etc/fstab
     # PARTUUID=2db898db-01  /boot           vfat    defaults          0       2
-    regexp: '(.*/boot\s+vfat\s+)defaults(\s+.*)'
+    regexp: '^(.*/boot\s+vfat\s+)defaults(\s+.*)$'
     replace: '\1defaults,ro\2'
     backup: yes
 - name: "Ensure temporary directories are mounted as tmpfs"

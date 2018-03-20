@@ -45,6 +45,36 @@ def test_fstab(File):
     assert "tmpfs /tmp     tmpfs nodev,nosuid 0 0" in f.content_string
 
 
+def test_sshd_privilege_separation(File):
+    f = File("/etc/ssh/sshd_config")
+    assert "UsePrivilegeSeparation no" in f.content_string
+
+
+def test_resolv_conf(File):
+    # Disabled because changing /etc/resolv.conf does not work in Docker
+    # f = File("/etc/resolv.conf")
+    # assert f.is_symlink
+    # assert f.linked_to == "/tmp/etc/resolv.conf"
+
+    f = File("/tmp/etc/resolv.conf")
+    assert f.exists
+    assert f.is_file
+    assert f.user == "root"
+    assert f.group == "root"
+
+
+def test_var_spool_permissions(File):
+    f = File("/usr/lib/tmpfiles.d/var.conf")
+    assert "/var/spool 1777" in f.content_string
+
+
+def test_boot_options(File):
+    f = File("/boot/cmdline.txt")
+    assert " fastboot" in f.content_string
+    assert " noswap" in f.content_string
+    assert " ro" in f.content_string
+
+
 def is_installed(package):
     """Returns whether a given package is installed.
 
