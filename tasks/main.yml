@@ -7,6 +7,7 @@
     dest: "{{ ansible_env.HOME }}/.asoundrc"
     mode: 0644
 
+
 # Source: https://learn.adafruit.com/read-only-raspberry-pi/
 
 # echo "Removing unwanted packages..."
@@ -43,85 +44,44 @@
     - openssh-server  # Added for testing. Should be installed by default.
     - busybox-syslogd
 
-# # Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
-# append2 /boot/cmdline.txt fastboot fastboot
-# append2 /boot/cmdline.txt noswap noswap
-# append2 /boot/cmdline.txt ro^o^t ro
-
-- name: "Ensure that /boot/cmdline.txt exists"  # Added for testing. Should be present by default.
-  become: true
-  file:
-    path: /boot/cmdline.txt
-    state: touch
-- name: "Ensure that the Raspberry Pi is started with 'fastboot'"
-  become: true
-  replace:
-    path: /boot/cmdline.txt
-    regexp: '^((?:.(?!fastboot))*)$'
-    replace: '\1 fastboot'
-    backup: yes
-- name: "Ensure that the Raspberry Pi is started with 'noswap'"
-  become: true
-  replace:
-    path: /boot/cmdline.txt
-    regexp: '^((?:.(?!noswap))*)$'
-    replace: '\1 noswap'
-    backup: yes
-- name: "Ensure that the Raspberry Pi is started with 'ro'"
-  become: true
-  replace:
-    path: /boot/cmdline.txt
-    regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
-    replace: '\1 ro'
-    backup: yes
 
 # # Move /var/spool to /tmp
 # rm -rf /var/spool
 # ln -s /tmp /var/spool
 
-- name: "Ensure /tmp/var/spool exists"
+- name: "Ensure temporary directories exist"
   become: true
   file:
-    path: /tmp/var/spool
+    path: "{{ item }}"
     state: directory
-- name: "Retrieve status of /var/spool"
+  with_items:
+    - /tmp/var/spool
+    - /tmp/var/lib/mopidy
+    - /tmp/var/cache/mopidy
+- name: "Retrieve status of directories to replace with temporary directories"
   stat:
-    path: /var/spool
-  register: var_spool
-- name: "Ensure /var/spool is not a directory"
+    path: "{{ item }}"
+  with_items:
+    - /var/spool
+    - /var/lib/mopidy
+    - /var/cache/mopidy
+  register: stat_directories
+- name: "Ensure the directories to replace with temporary directories do not exist"
   become: true
   file:
-    path: /var/spool
+    path: "{{ item.item }}"
     state: absent
-  when: var_spool.stat.exists and var_spool.stat.isdir
-- name: "Ensure /var/spool links to /tmp/var/spool"
+  when: item.stat.exists and item.stat.isdir
+  with_items: "{{ stat_directories.results }}"
+- name: "Ensure the directories to replace with temporary directories are symlinked"
   become: true
   file:
-    dest: /var/spool
+    dest: "{{ item.item }}"
     state: link
-    src: /tmp/var/spool
+    src: "/tmp{{ item.item }}"
+    force: true  # Added mainly for testing. Should be present if Mopidy is installed.
+  with_items: "{{ stat_directories.results }}"
 
-# # Make SSH work
-# replaceAppend /etc/ssh/sshd_config "^.*UsePrivilegeSeparation.*$" "UsePrivilegeSeparation no"
-
-- name: "Ensure the SSH server does not use privilege separation"
-  become: true
-  replace:
-    path: /etc/ssh/sshd_config
-    regexp: '^.*UsePrivilegeSeparation.*$'
-    replace: 'UsePrivilegeSeparation no'
-    backup: yes
-
-# # Change spool permissions in var.conf (rondie/Margaret fix)
-# replace /usr/lib/tmpfiles.d/var.conf "spool\s*0755" "spool 1777"
-
-- name: "Ensure the right permissions are set for the temporary directory /var/spool"
-  become: true
-  replace:
-    path: /usr/lib/tmpfiles.d/var.conf
-    regexp: '^(d\s+/var/spool\s+)0755(.*)$'
-    replace: '\g<1>1777\g<2>'
-    backup: yes
 
 # # Move dhcpd.resolv.conf to tmpfs
 # touch /tmp/dhcpcd.resolv.conf
@@ -157,6 +117,31 @@
     src: /tmp/etc/resolv.conf
   ignore_errors: yes  # Added for testing. Changing /etc/resolv.conf does not work in Docker
 
+
+# # Make SSH work
+# replaceAppend /etc/ssh/sshd_config "^.*UsePrivilegeSeparation.*$" "UsePrivilegeSeparation no"
+
+- name: "Ensure the SSH server does not use privilege separation"
+  become: true
+  replace:
+    path: /etc/ssh/sshd_config
+    regexp: '^.*UsePrivilegeSeparation.*$'
+    replace: 'UsePrivilegeSeparation no'
+    backup: yes
+
+
+# # Change spool permissions in var.conf (rondie/Margaret fix)
+# replace /usr/lib/tmpfiles.d/var.conf "spool\s*0755" "spool 1777"
+
+- name: "Ensure the right permissions are set for the temporary directory /var/spool"
+  become: true
+  replace:
+    path: /usr/lib/tmpfiles.d/var.conf
+    regexp: '^(d\s+/var/spool\s+)0755(.*)$'
+    replace: '\g<1>1777\g<2>'
+    backup: yes
+
+
 # # Make edits to fstab
 # # make / ro
 # # make /boot ro
@@ -189,3 +174,36 @@
     - "tmpfs /var/log tmpfs nodev,nosuid 0 0"
     - "tmpfs /var/tmp tmpfs nodev,nosuid 0 0"
     - "tmpfs /tmp     tmpfs nodev,nosuid 0 0"
+
+
+# # Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
+# append2 /boot/cmdline.txt fastboot fastboot
+# append2 /boot/cmdline.txt noswap noswap
+# append2 /boot/cmdline.txt ro^o^t ro
+
+- name: "Ensure that /boot/cmdline.txt exists"  # Added for testing. Should be present by default.
+  become: true
+  file:
+    path: /boot/cmdline.txt
+    state: touch
+- name: "Ensure that the Raspberry Pi is started with 'fastboot'"
+  become: true
+  replace:
+    path: /boot/cmdline.txt
+    regexp: '^((?:.(?!fastboot))*)$'
+    replace: '\1 fastboot'
+    backup: yes
+- name: "Ensure that the Raspberry Pi is started with 'noswap'"
+  become: true
+  replace:
+    path: /boot/cmdline.txt
+    regexp: '^((?:.(?!noswap))*)$'
+    replace: '\1 noswap'
+    backup: yes
+- name: "Ensure that the Raspberry Pi is started with 'ro'"
+  become: true
+  replace:
+    path: /boot/cmdline.txt
+    regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
+    replace: '\1 ro'
+    backup: yes

@@ -27,15 +27,32 @@ def test_apt_packages_are_installed_and_deinstalled(Package):
 
 
 def test_var_spool(File):
-    f = File("/var/spool")
-    assert f.is_symlink
-    assert f.linked_to == "/tmp/var/spool"
+    assert_is_symlinked(
+            File,
+            "/var/spool", "/tmp/var/spool",
+            "root", "root"
+            )
 
-    f = File("/tmp/var/spool")
-    assert f.exists
-    assert f.is_directory
-    assert f.user == "root"
-    assert f.group == "root"
+
+def test_var_spool_permissions(File):
+    f = File("/usr/lib/tmpfiles.d/var.conf")
+    assert "/var/spool 1777" in f.content_string
+
+
+def test_var_lib_mopidy(File):
+    assert_is_symlinked(
+            File,
+            "/var/lib/mopidy", "/tmp/var/lib/mopidy",
+            "mopidy", "audio"
+            )
+
+
+# def test_var_cache_mopidy(File):
+#     assert_is_symlinked(
+#             File,
+#             "/var/cache/mopidy", "/tmp/var/cache/mopidy"
+#             "mopidy", "audio"
+#             )
 
 
 def test_fstab(File):
@@ -63,11 +80,6 @@ def test_resolv_conf(File):
     assert f.group == "root"
 
 
-def test_var_spool_permissions(File):
-    f = File("/usr/lib/tmpfiles.d/var.conf")
-    assert "/var/spool 1777" in f.content_string
-
-
 def test_boot_options(File):
     f = File("/boot/cmdline.txt")
     assert " fastboot" in f.content_string
@@ -88,3 +100,16 @@ def is_installed(package):
         return package.is_installed
     except AssertionError:
         return False
+
+
+def assert_is_symlinked(
+        File, source_path, target_path, target_user, target_group):
+    f = File(source_path)
+    assert f.is_symlink
+    assert f.linked_to == target_path
+
+    f = File(target_path)
+    assert f.exists
+    assert f.is_directory
+    assert f.user == target_user
+    assert f.group == target_group
