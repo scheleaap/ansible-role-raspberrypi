@@ -192,18 +192,21 @@
     path: /boot/cmdline.txt
     regexp: '^((?:.(?!fastboot))*)$'
     replace: '\1 fastboot'
-    backup: yes
+    # backup: yes
+    backup: no  # Because the filenames Ansible creates do not work on FAT32
 - name: "Ensure that the Raspberry Pi is started with 'noswap'"
   become: true
   replace:
     path: /boot/cmdline.txt
     regexp: '^((?:.(?!noswap))*)$'
     replace: '\1 noswap'
-    backup: yes
+    # backup: yes
+    backup: no  # Because the filenames Ansible creates do not work on FAT32
 - name: "Ensure that the Raspberry Pi is started with 'ro'"
   become: true
   replace:
     path: /boot/cmdline.txt
     regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
     replace: '\1 ro'
-    backup: yes
+    # backup: yes
+    backup: no  # Because the filenames Ansible creates do not work on FAT32
