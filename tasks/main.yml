@@ -45,26 +45,38 @@
     - busybox-syslogd
 
 
-# # Move /var/spool to /tmp
-# rm -rf /var/spool
-# ln -s /tmp /var/spool
+# Move directories to temporary directories
 
 - name: "Ensure temporary directories exist"
   become: true
   file:
-    path: "{{ item }}"
+    path: "{{ item.path }}"
+    owner: "{{ item.owner }}"
+    group: "{{ item.group }}"
     state: directory
   with_items:
-    - /tmp/var/spool
-    - /tmp/var/lib/mopidy
+    - { path: /tmp/var/cache/mopidy, owner: mopidy, group: audio }
+    - { path: /tmp/var/lib/mopidy, owner: mopidy, group: audio }
+    - { path: /tmp/var/lib/snapserver, owner: snapserver, group: snapserver }
+    - { path: /tmp/var/spool, owner: root, group: root }
+- name: "Ensure temporary directories are mounted as tmpfs"
+  become: true
+  lineinfile:
+    path: /etc/fstab
+    line: "tmpfs {{ item }} tmpfs nodev,nosuid 0 0"
+  with_items:
     - /tmp/var/cache/mopidy
+    - /tmp/var/lib/mopidy
+    - /tmp/var/lib/snapserver
+    - /tmp/var/spool
 - name: "Retrieve status of directories to replace with temporary directories"
   stat:
     path: "{{ item }}"
   with_items:
-    - /var/spool
-    - /var/lib/mopidy
     - /var/cache/mopidy
+    - /var/lib/mopidy
+    - /var/lib/snapserver
+    - /var/spool
   register: stat_directories
 - name: "Ensure the directories to replace with temporary directories do not exist"
   become: true
@@ -83,16 +95,18 @@
   with_items: "{{ stat_directories.results }}"
 
 
-# # Move dhcpd.resolv.conf to tmpfs
-# touch /tmp/dhcpcd.resolv.conf
-# rm /etc/resolv.conf
-# ln -s /tmp/dhcpcd.resolv.conf /etc/resolv.conf
+# Move dhcpd.resolv.conf to tmpfs
 
 - name: "Ensure /tmp/etc exists"
   become: true
   file:
     path: /tmp/etc
     state: directory
+- name: "Ensure /tmp/etc is mounted as tmpfs"
+  become: true
+  lineinfile:
+    path: /etc/fstab
+    line: "tmpfs /tmp/etc tmpfs nodev,nosuid 0 0"
 - name: "Ensure /tmp/etc/resolv.conf exists"
   become: true
   file:
@@ -172,6 +186,7 @@
     line: "{{ item }}"
   with_items:
     - "tmpfs /var/log tmpfs nodev,nosuid 0 0"
+    - "tmpfs /var/log/mopidy tmpfs nodev,nosuid 0 0"
     - "tmpfs /var/tmp tmpfs nodev,nosuid 0 0"
     - "tmpfs /tmp     tmpfs nodev,nosuid 0 0"
 
@@ -193,7 +208,7 @@
     regexp: '^((?:.(?!fastboot))*)$'
     replace: '\1 fastboot'
     # backup: yes
-    backup: no  # Because the filenames Ansible creates do not work on FAT32
+    backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.
 - name: "Ensure that the Raspberry Pi is started with 'noswap'"
   become: true
   replace:
@@ -201,7 +216,7 @@
     regexp: '^((?:.(?!noswap))*)$'
     replace: '\1 noswap'
     # backup: yes
-    backup: no  # Because the filenames Ansible creates do not work on FAT32
+    backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.
 - name: "Ensure that the Raspberry Pi is started with 'ro'"
   become: true
   replace:
@@ -209,4 +224,4 @@
     regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
     replace: '\1 ro'
     # backup: yes
-    backup: no  # Because the filenames Ansible creates do not work on FAT32
+    backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.

@@ -45,26 +45,25 @@ def test_var_lib_mopidy(File):
             "/var/lib/mopidy", "/tmp/var/lib/mopidy",
             "mopidy", "audio"
             )
+    assert_is_tmpfs(File, "/tmp/var/lib/mopidy")
 
 
-# def test_var_cache_mopidy(File):
-#     assert_is_symlinked(
-#             File,
-#             "/var/cache/mopidy", "/tmp/var/cache/mopidy"
-#             "mopidy", "audio"
-#             )
+def test_var_cache_mopidy(File):
+    assert_is_symlinked(
+            File,
+            "/var/cache/mopidy", "/tmp/var/cache/mopidy",
+            "mopidy", "audio"
+            )
+    assert_is_tmpfs(File, "/tmp/var/cache/mopidy")
 
 
-def test_fstab(File):
-    f = File("/etc/fstab")
-    assert "tmpfs /var/log tmpfs nodev,nosuid 0 0" in f.content_string
-    assert "tmpfs /var/tmp tmpfs nodev,nosuid 0 0" in f.content_string
-    assert "tmpfs /tmp     tmpfs nodev,nosuid 0 0" in f.content_string
-
-
-def test_sshd_privilege_separation(File):
-    f = File("/etc/ssh/sshd_config")
-    assert "UsePrivilegeSeparation no" in f.content_string
+def test_var_lib_snapserver(File):
+    assert_is_symlinked(
+            File,
+            "/var/lib/snapserver", "/tmp/var/lib/snapserver",
+            "snapserver", "snapserver"
+            )
+    assert_is_tmpfs(File, "/tmp/var/lib/snapserver")
 
 
 def test_resolv_conf(File):
@@ -78,6 +77,20 @@ def test_resolv_conf(File):
     assert f.is_file
     assert f.user == "root"
     assert f.group == "root"
+
+    assert_is_tmpfs(File, "/tmp/etc")
+
+
+def test_fstab(File):
+    assert_is_tmpfs(File, "/var/log")
+    assert_is_tmpfs(File, "/var/log/mopidy")
+    assert_is_tmpfs(File, "/var/tmp")
+    assert_is_tmpfs(File, "/tmp    ")
+
+
+def test_sshd_privilege_separation(File):
+    f = File("/etc/ssh/sshd_config")
+    assert "UsePrivilegeSeparation no" in f.content_string
 
 
 def test_boot_options(File):
@@ -113,3 +126,9 @@ def assert_is_symlinked(
     assert f.is_directory
     assert f.user == target_user
     assert f.group == target_group
+
+
+def assert_is_tmpfs(File, path):
+    f = File("/etc/fstab")
+    assert "tmpfs {} tmpfs nodev,nosuid 0 0".format(path) \
+        in f.content_string
