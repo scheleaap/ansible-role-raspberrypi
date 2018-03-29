@@ -10,13 +10,7 @@
 
 # Source: https://learn.adafruit.com/read-only-raspberry-pi/
 
-# echo "Removing unwanted packages..."
-# apt-get remove -y --force-yes --purge triggerhappy cron logrotate dphys-swapfile xserver-common lightdm fake-hwclock
-# apt-get -y --force-yes autoremove --purge
-#
-# # Replace log management with busybox (use logread if needed)
-# echo "Installing busybox-syslogd..."
-# apt-get -y --force-yes install busybox-syslogd; dpkg --purge rsyslog
+# Remove unwanted packages and replace log management with busybox (use logread if needed)
 
 - name: "Ensure certain packages are not installed"
   become: true
@@ -132,8 +126,7 @@
   ignore_errors: yes  # Added for testing. Changing /etc/resolv.conf does not work in Docker
 
 
-# # Make SSH work
-# replaceAppend /etc/ssh/sshd_config "^.*UsePrivilegeSeparation.*$" "UsePrivilegeSeparation no"
+# Make SSH work
 
 - name: "Ensure the SSH server does not use privilege separation"
   become: true
@@ -144,8 +137,7 @@
     backup: yes
 
 
-# # Change spool permissions in var.conf (rondie/Margaret fix)
-# replace /usr/lib/tmpfiles.d/var.conf "spool\s*0755" "spool 1777"
+# Change spool permissions in var.conf (rondie/Margaret fix)
 
 - name: "Ensure the right permissions are set for the temporary directory /var/spool"
   become: true
@@ -156,12 +148,7 @@
     backup: yes
 
 
-# # Make edits to fstab
-# # make / ro
-# # make /boot ro
-# # tmpfs /var/log tmpfs nodev,nosuid 0 0
-# # tmpfs /var/tmp tmpfs nodev,nosuid 0 0
-# # tmpfs /tmp     tmpfs nodev,nosuid 0 0
+# Make edits to fstab
 
 - name: "Ensure / is mounted read-only"
   become: true
@@ -191,10 +178,7 @@
     - "tmpfs /tmp     tmpfs nodev,nosuid 0 0"
 
 
-# # Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
-# append2 /boot/cmdline.txt fastboot fastboot
-# append2 /boot/cmdline.txt noswap noswap
-# append2 /boot/cmdline.txt ro^o^t ro
+# Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
 
 - name: "Ensure that /boot/cmdline.txt exists"  # Added for testing. Should be present by default.
   become: true
