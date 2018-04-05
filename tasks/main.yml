@@ -38,74 +38,34 @@
     - openssh-server  # Added for testing. Should be installed by default.
     - busybox-syslogd
 
-
-# Move directories to temporary directories
-
-- name: "Ensure temporary directories exist"
-  become: true
-  file:
-    path: "{{ item.path }}"
-    owner: "{{ item.owner }}"
-    group: "{{ item.group }}"
-    state: directory
-  with_items:
-    - { path: /tmp/var/cache/mopidy, owner: mopidy, group: audio }
-    - { path: /tmp/var/lib/mopidy, owner: mopidy, group: audio }
-    - { path: /tmp/var/lib/snapserver, owner: snapserver, group: snapserver }
-    - { path: /tmp/var/spool, owner: root, group: root }
 - name: "Ensure temporary directories are mounted as tmpfs"
   become: true
   lineinfile:
     path: /etc/fstab
     line: "tmpfs {{ item }} tmpfs nodev,nosuid 0 0"
   with_items:
-    - /tmp/var/cache/mopidy
-    - /tmp/var/lib/mopidy
-    - /tmp/var/lib/snapserver
-    - /tmp/var/spool
-- name: "Retrieve status of directories to replace with temporary directories"
-  stat:
-    path: "{{ item }}"
-  with_items:
-    - /var/cache/mopidy
-    - /var/lib/mopidy
-    - /var/lib/snapserver
-    - /var/spool
-  register: stat_directories
-- name: "Ensure the directories to replace with temporary directories do not exist"
-  become: true
-  file:
-    path: "{{ item.item }}"
-    state: absent
-  when: item.stat.exists and item.stat.isdir
-  with_items: "{{ stat_directories.results }}"
-- name: "Ensure the directories to replace with temporary directories are symlinked"
-  become: true
-  file:
-    dest: "{{ item.item }}"
-    state: link
-    src: "/tmp{{ item.item }}"
-    force: true  # Added mainly for testing. Should be present if Mopidy is installed.
-  with_items: "{{ stat_directories.results }}"
-
+    #- /var/spool
+    - "/tmp               "
+    - "/var/cache/mopidy  "
+    - "/var/cache/unbound "
+    - "/var/log           "
+    - "/var/lib/dhcpcd5   "
+    - "/var/log/mopidy    "
+    - "/var/lib/mopidy    "
+    - "/var/lib/snapserver"
+    - "/var/tmp           "
 
 # Move dhcpd.resolv.conf to tmpfs
 
-- name: "Ensure /tmp/etc exists"
+- name: "Ensure /tmp/resolv.conf exists"
   become: true
-  file:
-    path: /tmp/etc
-    state: directory
-- name: "Ensure /tmp/etc is mounted as tmpfs"
-  become: true
-  lineinfile:
-    path: /etc/fstab
-    line: "tmpfs /tmp/etc tmpfs nodev,nosuid 0 0"
-- name: "Ensure /tmp/etc/resolv.conf exists"
-  become: true
-  file:
-    path: /tmp/etc/resolv.conf
-    state: touch
+  copy:
+    dest: /tmp/resolv.conf
+    src: resolv.conf.default
+    owner: root
+    group: root
+    mode: 644
+    force: no  # Only copy the file if the destination does not exist.
 - name: "Retrieve status of /etc/resolv.conf"
   stat:
     path: /etc/resolv.conf
@@ -117,81 +77,74 @@
     state: absent
   when: etc_resolv_conf.stat.exists and etc_resolv_conf.stat.isreg
   ignore_errors: yes  # Added for testing. Changing /etc/resolv.conf does not work in Docker.
-- name: "Ensure /etc/resolv.conf links to /tmp/etc/resolv.conf"
+- name: "Ensure /etc/resolv.conf links to /tmp/resolv.conf"
   become: true
   file:
     dest: /etc/resolv.conf
     state: link
-    src: /tmp/etc/resolv.conf
+    src: /tmp/resolv.conf
   ignore_errors: yes  # Added for testing. Changing /etc/resolv.conf does not work in Docker
 
 
-# Make SSH work
-
-- name: "Ensure the SSH server does not use privilege separation"
-  become: true
-  replace:
-    path: /etc/ssh/sshd_config
-    regexp: '^.*UsePrivilegeSeparation.*$'
-    replace: 'UsePrivilegeSeparation no'
-    backup: yes
-
-
-# Change spool permissions in var.conf (rondie/Margaret fix)
-
-- name: "Ensure the right permissions are set for the temporary directory /var/spool"
-  become: true
-  replace:
-    path: /usr/lib/tmpfiles.d/var.conf
-    regexp: '^(d\s+/var/spool\s+)0755(.*)$'
-    replace: '\g<1>1777\g<2>'
-    backup: yes
-
-
-# Make edits to fstab
-
-- name: "Ensure / is mounted read-only"
-  become: true
-  replace:
-    path: /etc/fstab
-    # PARTUUID=2db898db-02  /               ext4    defaults,noatime  0       1
-    regexp: '^(.*/\s+ext4\s+)defaults,noatime(\s+.*)$'
-    replace: '\1defaults,noatime,ro\2'
-    backup: yes
-- name: "Ensure /boot is mounted read-only"
-  become: true
-  replace:
-    path: /etc/fstab
-    # PARTUUID=2db898db-01  /boot           vfat    defaults          0       2
-    regexp: '^(.*/boot\s+vfat\s+)defaults(\s+.*)$'
-    replace: '\1defaults,ro\2'
-    backup: yes
-- name: "Ensure temporary directories are mounted as tmpfs"
-  become: true
-  lineinfile:
-    path: /etc/fstab
-    line: "{{ item }}"
-  with_items:
-    - "tmpfs /var/log tmpfs nodev,nosuid 0 0"
-    - "tmpfs /var/log/mopidy tmpfs nodev,nosuid 0 0"
-    - "tmpfs /var/tmp tmpfs nodev,nosuid 0 0"
-    - "tmpfs /tmp     tmpfs nodev,nosuid 0 0"
+# |# Make SSH work
+# |
+# |- name: "Ensure the SSH server does not use privilege separation"
+# |  become: true
+# |  replace:
+# |    path: /etc/ssh/sshd_config
+# |    regexp: '^.*UsePrivilegeSeparation.*$'
+# |    replace: 'UsePrivilegeSeparation no'
+# |    backup: yes
+# |
+# |
+# |# Change spool permissions in var.conf (rondie/Margaret fix)
+# |
+# |- name: "Ensure the right permissions are set for the temporary directory /var/spool"
+# |  become: true
+# |  replace:
+# |    path: /usr/lib/tmpfiles.d/var.conf
+# |    regexp: '^(d\s+/var/spool\s+)0755(.*)$'
+# |    replace: '\g<1>1777\g<2>'
+# |    backup: yes
+# |
+# |
+# |# Make edits to fstab
+# |
+# |- name: "Ensure / is mounted read-only"
+# |  become: true
+# |  replace:
+# |    path: /etc/fstab
+# |    # PARTUUID=2db898db-02  /               ext4    defaults,noatime  0       1
+# |    regexp: '^(.*/\s+ext4\s+)defaults,noatime(\s+.*)$'
+# |    replace: '\1defaults,noatime,ro\2'
+# |    backup: yes
+# |- name: "Ensure /boot is mounted read-only"
+# |  become: true
+# |  replace:
+# |    path: /etc/fstab
+# |    # PARTUUID=2db898db-01  /boot           vfat    defaults          0       2
+# |    regexp: '^(.*/boot\s+vfat\s+)defaults(\s+.*)$'
+# |    replace: '\1defaults,ro\2'
+# |    backup: yes
 
 
 # Add fastboot, noswap and/or ro to end of /boot/cmdline.txt
 
 - name: "Ensure that /boot/cmdline.txt exists"  # Added for testing. Should be present by default.
   become: true
-  file:
-    path: /boot/cmdline.txt
-    state: touch
+  copy:
+    dest: /boot/cmdline.txt
+    src: cmdline.txt.default
+    owner: root
+    group: root
+    mode: 644
+    force: no  # Only copy the file if the destination does not exist.
 - name: "Ensure that the Raspberry Pi is started with 'fastboot'"
   become: true
   replace:
     path: /boot/cmdline.txt
     regexp: '^((?:.(?!fastboot))*)$'
     replace: '\1 fastboot'
-    # backup: yes
     backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.
 - name: "Ensure that the Raspberry Pi is started with 'noswap'"
   become: true
@@ -199,13 +152,12 @@
     path: /boot/cmdline.txt
     regexp: '^((?:.(?!noswap))*)$'
     replace: '\1 noswap'
-    # backup: yes
     backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.
-- name: "Ensure that the Raspberry Pi is started with 'ro'"
-  become: true
-  replace:
-    path: /boot/cmdline.txt
-    regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
-    replace: '\1 ro'
-    # backup: yes
-    backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.
+# |- name: "Ensure that the Raspberry Pi is started with 'ro'"
+# |  become: true
+# |  replace:
+# |    path: /boot/cmdline.txt
+# |    regexp: '^((?!ro(?:\s|$))(?:.(?!ro(?:\s|$)))*)$'
+# |    replace: '\1 ro'
+# |    # backup: yes
+# |    backup: no  # Because the filenames Ansible creates do not work on FAT32. See https://github.com/ansible/ansible/issues/10591.
