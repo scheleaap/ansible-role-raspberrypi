@@ -6,3 +6,9 @@
     src: templates/asoundrc.j2
     dest: "{{ ansible_env.HOME }}/.asoundrc"
     mode: 0644
+  when:
+    - raspberrypi_audio_mode == "usb_audio_card"
+
+- include: justboom-dac.yml
+  when:
+    - raspberrypi_audio_mode == "justboom_dac"

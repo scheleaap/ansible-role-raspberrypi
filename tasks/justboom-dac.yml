@@ -1,0 +1,20 @@
+---
+# Source: https://www.justboom.co/software/configure-justboom-with-raspbian/
+- name: "Disable the built-in audio device"
+  become: true
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^dtparam=audio=
+    line: dtparam=audio=off
+- name: "Enable is2-mmap"
+  become: true
+  lineinfile:
+    dest: /boot/config.txt
+    line: dtoverlay=i2s-mmap
+    insertafter: ^# Additional overlays
+- name: "Enable the Justboom DAC"
+  become: true
+  lineinfile:
+    dest: /boot/config.txt
+    line: dtoverlay=justboom-dac
+    insertafter: ^# Additional overlays
