@@ -1,0 +1,7 @@
+---
+- name: "Enable SPI"
+  become: true
+  lineinfile:
+    dest: /boot/config.txt
+    regexp: ^dtparam=spi=
+    line: dtparam=spi=on
