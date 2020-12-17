@@ -1,0 +1,13 @@
+[Unit]
+Description=Shutdown Hook
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/true
+ExecStop={{ raspberrypi_shutdown_hook_command }}
+User=pi
+
+[Install]
+WantedBy=multi-user.target

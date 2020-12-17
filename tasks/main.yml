@@ -1,6 +1,4 @@
 ---
-# tasks file for raspberrypi
-
 - name: "Ensure that the external sound card is used"
   template:
     src: templates/asoundrc.j2
@@ -14,3 +12,5 @@
     - raspberrypi_audio_mode == "justboom_dac"
 
 - include: spi.yml
+
+- include: shutdown-hook.yml

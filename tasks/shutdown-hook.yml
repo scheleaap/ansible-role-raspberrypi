@@ -1,0 +1,22 @@
+- name: "Ensure that the shutdown hook service is configured"
+  become: true
+  template:
+    src: templates/shutdown-hook.service.j2
+    dest: /etc/systemd/system/shutdown-hook.service
+    mode: 0644
+  when:
+    - raspberrypi_shutdown_hook_command != ""
+- name: "Ensure that the shutdown hook service starts at boot"
+  become: true
+  service:
+    name: shutdown-hook
+    enabled: yes
+  when:
+    - raspberrypi_shutdown_hook_command != ""
+- name: "Ensure that the shutdown hook service is running"
+  become: true
+  service:
+    name: shutdown-hook
+    state: started
+  when:
+    - raspberrypi_shutdown_hook_command != ""
