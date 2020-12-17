@@ -1,9 +1,24 @@
 ---
+- name: "Ensure that all audio users have a home directory and are in the 'audio' group"
+  become: true
+  user:
+    name: "{{ item }}"
+    append: true
+    create_home: true
+    groups:
+      - audio
+  loop: "{{ raspberrypi_audio_users }}"
+  when:
+    - raspberrypi_audio_mode == "usb_audio_card"
 - name: "Ensure that the external sound card is used"
+  become: true
   template:
     src: templates/asoundrc.j2
-    dest: "{{ ansible_env.HOME }}/.asoundrc"
+    dest: "/home/{{ item }}/.asoundrc"
     mode: 0644
+    owner: "{{ item }}"
+    group: "{{ item }}"
+  loop: "{{ raspberrypi_audio_users }}"
   when:
     - raspberrypi_audio_mode == "usb_audio_card"
 

@@ -1,3 +1,5 @@
 ---
 raspberrypi_audio_mode: usb_audio_card
+raspberrypi_audio_users:
+  - pi
 raspberrypi_shutdown_hook_command: ""
