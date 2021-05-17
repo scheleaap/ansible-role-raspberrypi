@@ -8,18 +8,10 @@
     groups:
       - audio
   loop: "{{ raspberrypi_audio_users }}"
-- name: "Ensure that the external sound card is used"
-  become: true
-  template:
-    src: templates/asoundrc.j2
-    dest: "/home/{{ item }}/.asoundrc"
-    mode: 0644
-    owner: "{{ item }}"
-    group: "{{ item }}"
-  loop: "{{ raspberrypi_audio_users }}"
+
+- include: usb-audio-card.yml
   when:
     - raspberrypi_audio_mode == "usb_audio_card"
-
 - include: justboom-dac.yml
   when:
     - raspberrypi_audio_mode == "justboom_dac"

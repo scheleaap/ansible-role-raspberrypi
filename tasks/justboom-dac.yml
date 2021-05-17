@@ -18,3 +18,9 @@
     dest: /boot/config.txt
     line: dtoverlay=justboom-dac
     insertafter: ^# Additional overlays
+- name: "Configure a software mixer for Alsa"
+  become: true
+  template:
+    src: templates/asoundrc-justboom.j2
+    dest: "/etc/asound.conf"
+    mode: 0644

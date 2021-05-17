@@ -1,0 +1,7 @@
+---
+- name: "Ensure that the external sound card is used"
+  become: true
+  template:
+    src: templates/asoundrc-usb.j2
+    dest: "/etc/asound.conf"
+    mode: 0644
