@@ -2,11 +2,6 @@
 # https://www.alsa-project.org/wiki/Asoundrc
 # https://github.com/owntone/owntone-server/blob/master/README_ALSA.md
 
-pcm.!default {
-    type plug
-    slave.pcm "justboom_dmix"
-}
-
 pcm.justboom_dmix  {
     type dmix
     ipc_key 1024             # need to be uniq value
