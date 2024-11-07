@@ -9,13 +9,13 @@
       - audio
   loop: "{{ raspberrypi_audio_users }}"
 
-- include: usb-audio-card.yml
+- import_tasks: usb-audio-card.yml
   when:
     - raspberrypi_audio_mode == "usb_audio_card"
-- include: justboom-dac.yml
+- import_tasks: justboom-dac.yml
   when:
     - raspberrypi_audio_mode == "justboom_dac"
 
-- include: spi.yml
+- import_tasks: spi.yml
 
-- include: shutdown-hook.yml
+- import_tasks: shutdown-hook.yml
